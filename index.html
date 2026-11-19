@@ -106,7 +106,7 @@
             <!-- Cột Trái: Logo HPG & Tiêu đề -->
             <div class="lg:col-span-5 flex flex-col sm:flex-row items-center lg:items-start gap-4 text-center sm:text-left">
                 <div class="shrink-0 w-20 h-20 md:w-24 md:h-24 rounded-full bg-white p-1 shadow-md border-2 border-[#00A8E8] flex items-center justify-center overflow-hidden">
-                    <img id="presenter-brand-logo" src="image_9613f0.jpg" alt="Logo Hệ thống Giáo dục HPG" class="w-full h-full object-contain rounded-full">
+                    <img id="presenter-brand-logo" src="LOGO_HPG.png" alt="Logo Hệ thống Giáo dục HPG" class="w-full h-full object-contain rounded-full">
                 </div>
                 <div class="flex flex-col justify-center space-y-1.5">
                     <div class="inline-flex flex-wrap items-center justify-center sm:justify-start gap-2">
@@ -199,8 +199,8 @@
                     <div class="md:col-span-4">
                         <label class="block text-xs font-bold text-slate-600 uppercase mb-1.5">Logo Thương Hiệu (HPG)</label>
                         <div class="flex items-center gap-2">
-                            <img id="preview-setting-logo" src="image_9613f0.jpg" alt="Logo preview" class="w-10 h-10 rounded-full object-contain border border-sky-300 bg-white shrink-0">
-                            <input type="text" id="input-brand-logo" value="image_9613f0.jpg" oninput="document.getElementById('preview-setting-logo').src=this.value" class="w-full bg-[#F0F9FF] border border-sky-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:border-[#00A8E8]" placeholder="URL hoặc tên file logo...">
+                            <img id="preview-setting-logo" src="LOGO_HPG.png" alt="Logo preview" class="w-10 h-10 rounded-full object-contain border border-sky-300 bg-white shrink-0">
+                            <input type="text" id="input-brand-logo" value="LOGO_HPG.png" oninput="document.getElementById('preview-setting-logo').src=this.value" class="w-full bg-[#F0F9FF] border border-sky-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:border-[#00A8E8]" placeholder="URL hoặc tên file logo...">
                             <label class="cursor-pointer shrink-0 px-3 py-2 rounded-xl bg-sky-100 hover:bg-sky-200 text-xs font-bold text-sky-800 border border-sky-300 transition" title="Tải file logo mới từ máy">
                                 <i class="fa-solid fa-upload"></i>
                                 <input type="file" accept="image/*" class="hidden" onchange="handleLogoUpload(event)">
@@ -281,7 +281,7 @@
         <!-- Header gọn cho điện thoại kèm Logo HPG -->
         <div class="bg-white/95 border-2 border-[#00A8E8]/40 rounded-3xl p-4 text-center shadow-lg sticky top-2 z-30 backdrop-blur-md">
             <div class="flex items-center justify-center gap-3">
-                <img id="voter-brand-logo" src="image_9613f0.jpg" alt="Logo HPG" class="w-12 h-12 rounded-full object-contain border-2 border-[#00A8E8] bg-white shrink-0 shadow-sm">
+                <img id="voter-brand-logo" src="LOGO_HPG.png" alt="Logo HPG" class="w-12 h-12 rounded-full object-contain border-2 border-[#00A8E8] bg-white shrink-0 shadow-sm">
                 <div class="text-left">
                     <span class="text-[10px] font-extrabold uppercase tracking-wider text-[#0284C7] block">Hệ Thống Giáo Dục HPG</span>
                     <h1 id="voter-event-title" class="text-base font-black text-slate-900 leading-snug line-clamp-2 uppercase">
@@ -379,34 +379,34 @@
         const CUSTOM_FIREBASE_STORAGE_KEY = `live_photo_voting_custom_firebase_${appId}`;
 
         // Dữ liệu 4 bức ảnh dự thi mặc định của Hệ thống Giáo dục HPG
-        const DEFAULT_LOGO_URL = "image_9613f0.jpg";
+        const DEFAULT_LOGO_URL = "LOGO_HPG.png";
         const SAMPLE_PHOTOS = [
             {
                 id: 0,
                 title: "Lớp 11B1",
                 author: "Tập thể học sinh Lớp 11B1 • Hệ thống Giáo dục HPG",
-                url: "image_961408.jpg",
+                url: "11B1.jpg",
                 votes: 0
             },
             {
                 id: 1,
                 title: "Lớp 12A3",
                 author: "Tập thể học sinh Lớp 12A3 • Hệ thống Giáo dục HPG",
-                url: "image_96140b.jpg",
+                url: "12A3.jpg",
                 votes: 0
             },
             {
                 id: 2,
                 title: "Ngô Thị Quỳnh Trang (AMV)",
                 author: "Đơn vị AMV • Hệ thống Giáo dục HPG",
-                url: "quỳnh trang.jpg",
+                url: "quynh_trang.jpg",
                 votes: 0
             },
             {
                 id: 3,
                 title: "Nguyễn Thị Nhung (Hapie)",
                 author: "Đơn vị Hapie • Hệ thống Giáo dục HPG",
-                url: "nhung hapie.jpg",
+                url: "nhung_hapie.jpg",
                 votes: 0
             }
         ];
