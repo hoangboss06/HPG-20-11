@@ -1,0 +1,1431 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bình Chọn Ảnh Trực Tiếp - Hệ Thống Giáo Dục HPG</title>
+    <!-- Tải Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tải Font Inter & Oswald cho số đếm ngược nổi bật -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Oswald:wght@600;700&display=swap" rel="stylesheet">
+    <!-- Thư viện tạo mã QR -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Thư viện pháo giấy chúc mừng Top 1 -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Oswald', 'sans-serif'],
+                    },
+                    colors: {
+                        hpg: {
+                            blue: '#00A8E8',
+                            blueDark: '#0284C7',
+                            blueLight: '#F0F9FF',
+                            yellow: '#F5D800',
+                            yellowDark: '#EAB308',
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'bounce-subtle': 'bounce 2s infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #F0F9FF;
+            color: #0F172A;
+            overflow-x: hidden;
+        }
+        /* Hiệu ứng viền phát sáng cho ảnh Top 1 theo tông vàng - xanh HPG */
+        .winner-glow {
+            box-shadow: 0 12px 35px rgba(0, 168, 232, 0.25), 0 0 0 4px #F5D800;
+            border-color: #00A8E8 !important;
+            transform: scale(1.02);
+            z-index: 10;
+        }
+        /* Thanh cuộn tinh tế cho giao diện sáng */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #E0F2FE;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #7DD3FC;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00A8E8;
+        }
+        /* Tùy chỉnh QR Code container */
+        #qrcode img, #qrcode canvas {
+            margin: 0 auto;
+            border-radius: 0.5rem;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-gradient-to-br from-[#F0F9FF] via-white to-[#E0F2FE] selection:bg-[#F5D800] selection:text-slate-900">
+
+    <!-- Thanh điều hướng chuyển chế độ (Nhỏ gọn trên cùng để BTC dễ kiểm tra) -->
+    <div class="bg-white/95 border-b border-sky-200 px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs z-40 backdrop-blur-md shadow-sm">
+        <div class="flex items-center gap-2">
+            <span class="inline-flex h-2.5 w-2.5 rounded-full bg-[#00A8E8] animate-ping" id="connection-dot"></span>
+            <span class="font-bold text-slate-700 tracking-wide uppercase" id="connection-status">Đang kết nối máy chủ trực tiếp...</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <button onclick="switchMode('presenter')" id="btn-mode-presenter" class="px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 bg-[#00A8E8] text-white shadow-sm">
+                <i class="fa-solid fa-tv"></i> Màn hình Trình chiếu (BTC)
+            </button>
+            <button onclick="switchMode('vote')" id="btn-mode-vote" class="px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 bg-sky-50 text-sky-800 border border-sky-200 hover:bg-sky-100">
+                <i class="fa-solid fa-mobile-screen-button"></i> Xem thử Khán giả
+            </button>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MÀN HÌNH 1: TRÌNH CHIẾU & ĐIỀU KHIỂN (DÀNH CHO BAN TỔ CHỨC)           -->
+    <!-- ===================================================================== -->
+    <main id="presenter-view" class="flex-1 flex flex-col max-w-[1600px] w-full mx-auto p-4 md:p-6 gap-5">
+        
+        <!-- Header Trình Chiếu: Logo HPG, Tiêu đề, Đồng hồ đếm ngược, Mã QR -->
+        <header class="grid grid-cols-1 lg:grid-cols-12 gap-4 bg-white border-2 border-[#00A8E8]/30 rounded-3xl p-4 md:p-6 shadow-xl shadow-sky-900/5 items-center relative overflow-hidden">
+            <!-- Dải màu trang trí nhận diện HPG trên cùng -->
+            <div class="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#00A8E8] via-[#F5D800] to-[#00A8E8]"></div>
+
+            <!-- Cột Trái: Logo HPG & Tiêu đề -->
+            <div class="lg:col-span-5 flex flex-col sm:flex-row items-center lg:items-start gap-4 text-center sm:text-left">
+                <div class="shrink-0 w-20 h-20 md:w-24 md:h-24 rounded-full bg-white p-1 shadow-md border-2 border-[#00A8E8] flex items-center justify-center overflow-hidden">
+                    <img id="presenter-brand-logo" src="image_9613f0.jpg" alt="Logo Hệ thống Giáo dục HPG" class="w-full h-full object-contain rounded-full">
+                </div>
+                <div class="flex flex-col justify-center space-y-1.5">
+                    <div class="inline-flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                        <span id="status-badge" class="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-sky-50 text-[#0284C7] border border-[#00A8E8]/40">
+                            <i class="fa-solid fa-clock mr-1"></i> Sẵn sàng bình chọn
+                        </span>
+                        <span class="px-3 py-1 rounded-full text-xs font-bold bg-[#F5D800]/25 text-slate-900 border border-[#EAB308]/50">
+                            Tổng phiếu: <strong id="total-votes-display" class="text-[#0284C7] text-sm ml-1 font-extrabold">0</strong>
+                        </span>
+                    </div>
+                    <h1 id="display-event-title" class="text-xl md:text-3xl font-black text-slate-900 leading-tight uppercase tracking-tight">
+                        BÌNH CHỌN ẢNH HỆ THỐNG GIÁO DỤC HPG
+                    </h1>
+                    <p class="text-slate-600 text-xs md:text-sm font-medium">
+                        Quét mã QR bên cạnh bằng camera điện thoại để bình chọn tác phẩm bạn yêu thích nhất!
+                    </p>
+                </div>
+            </div>
+
+            <!-- Cột Giữa: Đồng hồ đếm ngược & Nút điều khiển nhanh -->
+            <div class="lg:col-span-4 flex flex-col items-center justify-center bg-gradient-to-b from-[#F0F9FF] to-sky-100/70 border-2 border-[#00A8E8]/30 rounded-2xl p-4 shadow-inner">
+                <span class="text-xs uppercase tracking-widest text-[#0284C7] font-extrabold mb-1">Thời gian bình chọn còn lại</span>
+                <div id="presenter-timer" class="font-display text-6xl md:text-7xl font-bold tracking-wider text-[#00A8E8] drop-shadow-sm">
+                    02:00
+                </div>
+                
+                <!-- Thanh công cụ điều khiển phiên của BTC -->
+                <div class="flex flex-wrap items-center justify-center gap-2 mt-3 w-full">
+                    <button onclick="startVoting()" id="btn-start" class="px-3.5 py-2 rounded-xl bg-[#00A8E8] hover:bg-[#0284C7] text-white font-bold text-xs md:text-sm transition shadow-md shadow-sky-500/25 flex items-center gap-1.5">
+                        <i class="fa-solid fa-play"></i> Bắt đầu
+                    </button>
+                    <button onclick="togglePauseVoting()" id="btn-pause" class="px-3.5 py-2 rounded-xl bg-[#F5D800] hover:bg-[#EAB308] text-slate-950 font-extrabold text-xs md:text-sm transition shadow-md shadow-yellow-500/25 flex items-center gap-1.5 hidden">
+                        <i class="fa-solid fa-pause"></i> Tạm dừng
+                    </button>
+                    <button onclick="lockVotingNow()" id="btn-lock" class="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs md:text-sm transition shadow-md shadow-rose-500/20 flex items-center gap-1.5">
+                        <i class="fa-solid fa-lock"></i> Khóa ngay
+                    </button>
+                    <button onclick="openResetModal()" class="px-3 py-2 rounded-xl bg-white hover:bg-sky-50 text-slate-700 font-bold text-xs md:text-sm transition border border-sky-200 flex items-center gap-1.5" title="Làm mới phiếu về 0">
+                        <i class="fa-solid fa-rotate-right text-[#00A8E8]"></i> Reset
+                    </button>
+                    <button onclick="exportResultsCSV()" class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm transition shadow-md shadow-emerald-500/20 flex items-center gap-1.5" title="Xuất bảng kết quả bình chọn ra file CSV">
+                        <i class="fa-solid fa-file-csv"></i> Xuất CSV
+                    </button>
+                </div>
+            </div>
+
+            <!-- Cột Phải: Mã QR Quét Nhanh cho Khán Giả -->
+            <div class="lg:col-span-3 flex flex-col sm:flex-row lg:flex-col items-center justify-center gap-2.5 bg-white border-2 border-[#F5D800] rounded-2xl p-3 shadow-md">
+                <div class="bg-white p-1.5 rounded-xl border border-sky-200 shadow-sm" id="qrcode"></div>
+                <div class="text-center">
+                    <span class="inline-block px-2.5 py-0.5 rounded-full bg-[#F5D800] text-slate-950 text-[11px] font-black uppercase tracking-wider mb-1">
+                        Quét QR để bình chọn
+                    </span>
+                    <div>
+                        <button onclick="copyVoteLink()" class="text-xs font-bold text-[#0284C7] hover:text-[#00A8E8] underline flex items-center justify-center gap-1 mx-auto">
+                            <i class="fa-regular fa-copy"></i> Sao chép link khán giả
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Khu vực Cài đặt (Có thể thu gọn/mở rộng) -->
+        <div class="bg-white border border-sky-200 rounded-2xl overflow-hidden shadow-md">
+            <button onclick="toggleSettingsPanel()" class="w-full px-5 py-3 flex items-center justify-between text-left bg-sky-50/80 hover:bg-sky-100/70 transition">
+                <span class="font-bold text-sm text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-[#00A8E8]"></i>
+                    Cài đặt sự kiện, logo HPG, thời gian & 4 bức ảnh dự thi
+                </span>
+                <span class="text-xs font-bold text-[#0284C7] flex items-center gap-1">
+                    <span id="settings-toggle-text">Mở rộng</span>
+                    <i id="settings-chevron" class="fa-solid fa-chevron-down transition-transform duration-200"></i>
+                </span>
+            </button>
+            
+            <div id="settings-panel" class="hidden p-5 border-t border-sky-200 space-y-5 bg-white">
+                <!-- Cài đặt chung & Logo thương hiệu -->
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                    <div class="md:col-span-5">
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1.5">Tiêu đề cuộc thi / Sự kiện</label>
+                        <input type="text" id="input-event-title" class="w-full bg-[#F0F9FF] border border-sky-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-900 focus:outline-none focus:border-[#00A8E8]" placeholder="Nhập tiêu đề cuộc thi...">
+                    </div>
+                    <div class="md:col-span-3">
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1.5">Thời lượng bình chọn (Giây)</label>
+                        <div class="flex gap-2">
+                            <input type="number" id="input-duration" min="10" max="3600" value="120" class="w-full bg-[#F0F9FF] border border-sky-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-900 focus:outline-none focus:border-[#00A8E8]">
+                            <span class="inline-flex items-center px-3 rounded-xl bg-sky-100 text-xs font-bold text-sky-800 border border-sky-200">giây</span>
+                        </div>
+                    </div>
+                    <div class="md:col-span-4">
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1.5">Logo Thương Hiệu (HPG)</label>
+                        <div class="flex items-center gap-2">
+                            <img id="preview-setting-logo" src="image_9613f0.jpg" alt="Logo preview" class="w-10 h-10 rounded-full object-contain border border-sky-300 bg-white shrink-0">
+                            <input type="text" id="input-brand-logo" value="image_9613f0.jpg" oninput="document.getElementById('preview-setting-logo').src=this.value" class="w-full bg-[#F0F9FF] border border-sky-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:border-[#00A8E8]" placeholder="URL hoặc tên file logo...">
+                            <label class="cursor-pointer shrink-0 px-3 py-2 rounded-xl bg-sky-100 hover:bg-sky-200 text-xs font-bold text-sky-800 border border-sky-300 transition" title="Tải file logo mới từ máy">
+                                <i class="fa-solid fa-upload"></i>
+                                <input type="file" accept="image/*" class="hidden" onchange="handleLogoUpload(event)">
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cài đặt 4 bức ảnh -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" id="photo-settings-grid">
+                    <!-- Render tự động 4 ô nhập liệu qua JS -->
+                </div>
+
+                <!-- Kết nối Firebase riêng (Tùy chọn) để chạy sự kiện thực tế không cần sửa code -->
+                <div class="bg-[#F0F9FF] border border-sky-300 rounded-2xl p-4 space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                            <h4 class="text-sm font-extrabold text-[#0284C7] flex items-center gap-2">
+                                <i class="fa-solid fa-database"></i> Kết nối Firebase riêng (Tùy chọn)
+                            </h4>
+                            <p class="text-xs text-slate-600 mt-0.5">
+                                Dán đoạn cấu hình Firebase của bạn (JSON hoặc JS object chứa <code class="text-sky-800 font-bold">apiKey</code>, <code class="text-sky-800 font-bold">authDomain</code>, <code class="text-sky-800 font-bold">projectId</code>, <code class="text-sky-800 font-bold">storageBucket</code>, <code class="text-sky-800 font-bold">messagingSenderId</code>, <code class="text-sky-800 font-bold">appId</code>) để đồng bộ đa thiết bị khi đem file ra chạy ngoài.
+                            </p>
+                        </div>
+                        <span id="firebase-config-badge" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-white text-slate-700 border border-sky-200">
+                            Đang dùng cấu hình mặc định
+                        </span>
+                    </div>
+
+                    <textarea id="input-firebase-config" rows="4" class="w-full bg-white border border-sky-200 rounded-xl p-3 text-xs font-mono text-slate-800 focus:outline-none focus:border-[#00A8E8]" placeholder='{
+  "apiKey": "AIzaSy...",
+  "authDomain": "ten-du-an.firebaseapp.com",
+  "projectId": "ten-du-an",
+  "storageBucket": "ten-du-an.appspot.com",
+  "messagingSenderId": "123456789",
+  "appId": "1:123456789:web:abcdef"
+}'></textarea>
+
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <span class="text-[11px] text-slate-600">
+                            <i class="fa-solid fa-shield-halved text-[#00A8E8] mr-1"></i>
+                            Lưu trực tiếp trên trình duyệt (<code class="text-slate-800 font-semibold">localStorage</code>) của thiết bị này, tự động gắn vào link QR cho khán giả.
+                        </span>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="clearCustomFirebaseConfig()" class="px-3.5 py-1.5 rounded-xl bg-white hover:bg-rose-50 text-slate-700 text-xs font-bold border border-slate-300 transition">
+                                <i class="fa-solid fa-trash-can mr-1 text-rose-500"></i> Xóa cấu hình riêng
+                            </button>
+                            <button type="button" onclick="saveCustomFirebaseConfig()" class="px-4 py-1.5 rounded-xl bg-[#00A8E8] hover:bg-[#0284C7] text-white text-xs font-bold shadow-md transition flex items-center gap-1.5">
+                                <i class="fa-solid fa-plug"></i> Lưu & Kết nối Firebase
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-sky-100">
+                    <button onclick="loadSamplePhotos()" class="px-4 py-2 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-900 text-xs font-bold transition border border-sky-200">
+                        <i class="fa-solid fa-wand-magic-sparkles mr-1 text-[#00A8E8]"></i> Khôi phục 4 ảnh dự thi mặc định HPG
+                    </button>
+                    <button onclick="saveSettings()" class="px-6 py-2.5 rounded-xl bg-[#F5D800] hover:bg-[#EAB308] text-slate-950 text-sm font-black transition shadow-md flex items-center gap-2">
+                        <i class="fa-solid fa-floppy-disk"></i> Lưu & Cập nhật lên màn hình
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Khu vực Hiển thị 4 Bức Ảnh Trực Tiếp (Lưới 4 cột trên màn hình lớn, 2 cột trên tablet) -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 flex-1 items-stretch" id="presenter-photos-grid">
+            <!-- 4 thẻ ảnh sẽ được render bằng JS -->
+        </section>
+
+    </main>
+
+    <!-- ===================================================================== -->
+    <!-- MÀN HÌNH 2: KHÁN GIẢ BÌNH CHỌN (TỐI ƯU ĐIỆN THOẠI DI ĐỘNG)           -->
+    <!-- ===================================================================== -->
+    <main id="voter-view" class="hidden flex-1 flex flex-col max-w-lg w-full mx-auto p-4 gap-4 pb-12">
+        
+        <!-- Header gọn cho điện thoại kèm Logo HPG -->
+        <div class="bg-white/95 border-2 border-[#00A8E8]/40 rounded-3xl p-4 text-center shadow-lg sticky top-2 z-30 backdrop-blur-md">
+            <div class="flex items-center justify-center gap-3">
+                <img id="voter-brand-logo" src="image_9613f0.jpg" alt="Logo HPG" class="w-12 h-12 rounded-full object-contain border-2 border-[#00A8E8] bg-white shrink-0 shadow-sm">
+                <div class="text-left">
+                    <span class="text-[10px] font-extrabold uppercase tracking-wider text-[#0284C7] block">Hệ Thống Giáo Dục HPG</span>
+                    <h1 id="voter-event-title" class="text-base font-black text-slate-900 leading-snug line-clamp-2 uppercase">
+                        BÌNH CHỌN ẢNH HỆ THỐNG GIÁO DỤC HPG
+                    </h1>
+                </div>
+            </div>
+            
+            <div class="mt-3 pt-2.5 border-t border-sky-100 flex items-center justify-center gap-3">
+                <div class="flex items-center gap-2 bg-[#F0F9FF] px-3.5 py-1.5 rounded-xl border border-sky-200">
+                    <i class="fa-regular fa-clock text-[#00A8E8] text-sm"></i>
+                    <span id="voter-timer" class="font-display text-2xl font-bold text-[#0284C7] tracking-wider">02:00</span>
+                </div>
+                <span id="voter-status-pill" class="px-3 py-1.5 rounded-xl text-xs font-extrabold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    Đang mở bình chọn
+                </span>
+            </div>
+        </div>
+
+        <!-- Thông báo trạng thái dành cho khán giả -->
+        <div id="voter-alert-box" class="hidden rounded-2xl p-4 text-center font-bold text-sm border shadow-md"></div>
+
+        <!-- Danh sách 4 ảnh để khán giả bình chọn -->
+        <div class="space-y-4" id="voter-photos-list">
+            <!-- Render bằng JS -->
+        </div>
+
+        <!-- Chân trang khán giả -->
+        <div class="text-center text-xs text-slate-500 mt-4 space-y-2">
+            <p class="font-semibold text-slate-600">Hệ thống Giáo dục HPG • Bình chọn trực tiếp theo thời gian thực</p>
+            <button onclick="resetLocalDeviceVote()" class="text-slate-400 hover:text-slate-600 underline text-[11px]">
+                (Dành cho BTC kiểm thử: Xóa trạng thái đã vote trên máy này)
+            </button>
+        </div>
+    </main>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL PHÓNG TO XEM CHI TIẾT ẢNH                                       -->
+    <!-- ===================================================================== -->
+    <div id="image-lightbox" class="fixed inset-0 bg-slate-950/90 z-50 hidden flex-col items-center justify-center p-4 backdrop-blur-sm" onclick="closeLightbox()">
+        <button onclick="closeLightbox()" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center text-lg">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+        <img id="lightbox-img" src="" alt="Phóng to" class="max-h-[80vh] max-w-full rounded-2xl object-contain shadow-2xl border-2 border-[#00A8E8]" onclick="event.stopPropagation()">
+        <div class="mt-3 text-center max-w-xl" onclick="event.stopPropagation()">
+            <h3 id="lightbox-title" class="text-lg font-extrabold text-[#F5D800]"></h3>
+            <p id="lightbox-desc" class="text-sm text-sky-100 mt-1"></p>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL XÁC NHẬN RESET PHIẾU                                            -->
+    <!-- ===================================================================== -->
+    <div id="reset-modal" class="fixed inset-0 bg-slate-900/60 z-50 hidden items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white border-2 border-sky-200 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div class="flex items-center gap-3 text-[#0284C7]">
+                <div class="w-10 h-10 rounded-full bg-[#F5D800]/30 text-slate-900 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <h3 class="text-lg font-extrabold text-slate-900">Xác nhận làm mới phiên bình chọn?</h3>
+            </div>
+            <p class="text-sm text-slate-600 leading-relaxed">
+                Hành động này sẽ đưa toàn bộ số phiếu của 4 bức ảnh về <strong class="text-slate-900">0</strong>, đặt lại đồng hồ đếm ngược và tạo <strong class="text-slate-900">mã phiên mới</strong> để khán giả có thể bình chọn lại từ đầu.
+            </p>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeResetModal()" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold">
+                    Hủy bỏ
+                </button>
+                <button onclick="confirmResetVoting()" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-bold shadow-md">
+                    Đồng ý Reset
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Thông báo nhanh -->
+    <div id="toast-notification" class="fixed bottom-5 right-5 bg-slate-900 border border-[#00A8E8] text-white px-4 py-3 rounded-xl shadow-2xl text-sm font-semibold flex items-center gap-2.5 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-[#F5D800]"></i>
+        <span id="toast-message">Thông báo</span>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- JAVASCRIPT & FIREBASE REALTIME LOGIC                                  -->
+    <!-- ===================================================================== -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // 1. Khởi tạo cấu hình Firebase & Biến toàn cục
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'hpg-live-photo-voting';
+        const sandboxFirebaseConfig = typeof __firebase_config !== 'undefined' && __firebase_config
+            ? (typeof __firebase_config === 'string' ? JSON.parse(__firebase_config) : __firebase_config)
+            : null;
+        const CUSTOM_FIREBASE_STORAGE_KEY = `live_photo_voting_custom_firebase_${appId}`;
+
+        // Dữ liệu 4 bức ảnh dự thi mặc định của Hệ thống Giáo dục HPG
+        const DEFAULT_LOGO_URL = "image_9613f0.jpg";
+        const SAMPLE_PHOTOS = [
+            {
+                id: 0,
+                title: "Lớp 11B1",
+                author: "Tập thể học sinh Lớp 11B1 • Hệ thống Giáo dục HPG",
+                url: "image_961408.jpg",
+                votes: 0
+            },
+            {
+                id: 1,
+                title: "Lớp 12A3",
+                author: "Tập thể học sinh Lớp 12A3 • Hệ thống Giáo dục HPG",
+                url: "image_96140b.jpg",
+                votes: 0
+            },
+            {
+                id: 2,
+                title: "Ngô Thị Quỳnh Trang (AMV)",
+                author: "Đơn vị AMV • Hệ thống Giáo dục HPG",
+                url: "quỳnh trang.jpg",
+                votes: 0
+            },
+            {
+                id: 3,
+                title: "Nguyễn Thị Nhung (Hapie)",
+                author: "Đơn vị Hapie • Hệ thống Giáo dục HPG",
+                url: "nhung hapie.jpg",
+                votes: 0
+            }
+        ];
+
+        // Trạng thái ứng dụng
+        let appState = {
+            sessionId: "hpg_session_default",
+            eventTitle: "BÌNH CHỌN ẢNH HỆ THỐNG GIÁO DỤC HPG",
+            logoUrl: DEFAULT_LOGO_URL,
+            durationSeconds: 120,
+            status: "idle", // idle | running | paused | locked
+            endTime: null,
+            remainingSeconds: 120,
+            photos: JSON.parse(JSON.stringify(SAMPLE_PHOTOS))
+        };
+
+        // Xác định chế độ hiển thị hiện tại (presenter hoặc vote)
+        const initialParams = new URLSearchParams(window.location.search);
+        let currentMode = initialParams.get('mode') === 'vote' ? 'vote' : 'presenter';
+
+        window.switchMode = function(mode) {
+            currentMode = mode === 'vote' ? 'vote' : 'presenter';
+            const presenterView = document.getElementById('presenter-view');
+            const voterView = document.getElementById('voter-view');
+            const btnPresenter = document.getElementById('btn-mode-presenter');
+            const btnVote = document.getElementById('btn-mode-vote');
+
+            if (currentMode === 'vote') {
+                presenterView.classList.add('hidden');
+                voterView.classList.remove('hidden');
+                btnVote.className = "px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 bg-[#00A8E8] text-white shadow-sm";
+                btnPresenter.className = "px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 bg-sky-50 text-sky-800 border border-sky-200 hover:bg-sky-100";
+            } else {
+                voterView.classList.add('hidden');
+                presenterView.classList.remove('hidden');
+                btnPresenter.className = "px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 bg-[#00A8E8] text-white shadow-sm";
+                btnVote.className = "px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 bg-sky-50 text-sky-800 border border-sky-200 hover:bg-sky-100";
+            }
+            renderAll();
+        };
+
+        // Tiện ích nén ảnh tự động từ URL/File local sang DataURL nhẹ (< 150KB) để đồng bộ mượt qua Firestore
+        function compressImageFromSource(src, maxWidth = 720, maxHeight = 540, quality = 0.72) {
+            return new Promise((resolve) => {
+                if (!src || src.startsWith('data:image/')) {
+                    resolve(src);
+                    return;
+                }
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = function() {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        if (width > height) {
+                            if (width > maxWidth) {
+                                height *= maxWidth / width;
+                                width = maxWidth;
+                            }
+                        } else {
+                            if (height > maxHeight) {
+                                width *= maxHeight / height;
+                                height = maxHeight;
+                            }
+                        }
+                        canvas.width = Math.round(width);
+                        canvas.height = Math.round(height);
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        resolve(canvas.toDataURL('image/jpeg', quality));
+                    } catch (_) {
+                        // Fallback nếu ảnh ngoài bị chặn CORS canvas
+                        resolve(src);
+                    }
+                };
+                img.onerror = function() {
+                    resolve(src);
+                };
+                img.src = src;
+            });
+        }
+
+        // Đọc cấu hình Firebase riêng từ localStorage (nếu có) hoặc tham số URL ?fb=...
+        function getStoredCustomFirebaseConfig() {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const encodedFb = urlParams.get('fb');
+                if (encodedFb) {
+                    const decoded = JSON.parse(atob(decodeURIComponent(encodedFb)));
+                    if (decoded && decoded.apiKey && decoded.projectId) {
+                        localStorage.setItem(CUSTOM_FIREBASE_STORAGE_KEY, JSON.stringify(decoded));
+                        return decoded;
+                    }
+                }
+                const raw = localStorage.getItem(CUSTOM_FIREBASE_STORAGE_KEY);
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                return (parsed && parsed.apiKey && parsed.projectId) ? parsed : null;
+            } catch (e) {
+                console.warn("Không đọc được cấu hình Firebase tùy chỉnh:", e);
+                return null;
+            }
+        }
+
+        function resolveActiveFirebaseSource() {
+            const customCfg = getStoredCustomFirebaseConfig();
+            if (customCfg) {
+                return { config: customCfg, sourceType: 'custom', label: `Firebase Riêng (${customCfg.projectId})` };
+            }
+            if (sandboxFirebaseConfig && sandboxFirebaseConfig.apiKey) {
+                return { config: sandboxFirebaseConfig, sourceType: 'sandbox', label: 'Sandbox' };
+            }
+            return { config: null, sourceType: 'local_only', label: 'Chế độ thử nội bộ' };
+        }
+
+        function parseFirebaseConfigInput(rawText) {
+            const cleaned = (rawText || '').trim();
+            if (!cleaned) return null;
+            try {
+                const jsonObj = JSON.parse(cleaned);
+                return validateFirebaseConfigObject(jsonObj);
+            } catch (_) {
+                let normalized = cleaned
+                    .replace(/^\s*(const|let|var)\s+firebaseConfig\s*=\s*/i, '')
+                    .replace(/;\s*$/, '')
+                    .replace(/\/\/.*$/gm, '')
+                    .replace(/\/\*[\s\S]*?\*\//g, '')
+                    .replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":')
+                    .replace(/'([^']*)'/g, '"$1"')
+                    .replace(/,\s*([}\]])/g, '$1');
+
+                const parsedObj = JSON.parse(normalized);
+                return validateFirebaseConfigObject(parsedObj);
+            }
+        }
+
+        function validateFirebaseConfigObject(obj) {
+            if (!obj || typeof obj !== 'object') {
+                throw new Error("Cấu hình không phải là một đối tượng hợp lệ.");
+            }
+            const requiredKeys = ['apiKey', 'projectId', 'appId'];
+            const missing = requiredKeys.filter(k => !obj[k] || typeof obj[k] !== 'string' || !obj[k].trim());
+            if (missing.length > 0) {
+                throw new Error(`Thiếu các trường bắt buộc: ${missing.join(', ')}`);
+            }
+            return {
+                apiKey: obj.apiKey.trim(),
+                authDomain: (obj.authDomain || `${obj.projectId.trim()}.firebaseapp.com`).trim(),
+                projectId: obj.projectId.trim(),
+                storageBucket: (obj.storageBucket || `${obj.projectId.trim()}.appspot.com`).trim(),
+                messagingSenderId: (obj.messagingSenderId || '').trim(),
+                appId: obj.appId.trim()
+            };
+        }
+
+        let activeSource = resolveActiveFirebaseSource();
+        let firebaseConfig = activeSource.config;
+
+        let db = null;
+        let auth = null;
+        let currentUser = null;
+        let pollDocRef = null;
+        let unsubscribePoll = null;
+        let timerInterval = null;
+        let confettiTriggered = false;
+
+        // 3. Khởi tạo mã QR trỏ đến URL kèm ?mode=vote (và ?fb=... nếu đang dùng Firebase riêng)
+        function initQRCode() {
+            const qrContainer = document.getElementById('qrcode');
+            if (!qrContainer) return;
+            qrContainer.innerHTML = '';
+            const voteUrl = buildVoterUrl();
+            
+            new QRCode(qrContainer, {
+                text: voteUrl,
+                width: 118,
+                height: 118,
+                colorDark: "#0284C7",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.M
+            });
+        }
+
+        function buildVoterUrl() {
+            const voteUrl = new URL(window.location.href);
+            voteUrl.searchParams.set('mode', 'vote');
+            const customCfg = getStoredCustomFirebaseConfig();
+            if (customCfg) {
+                voteUrl.searchParams.set('fb', encodeURIComponent(btoa(JSON.stringify(customCfg))));
+            } else {
+                voteUrl.searchParams.delete('fb');
+            }
+            return voteUrl.toString();
+        }
+
+        window.copyVoteLink = function() {
+            const voteUrl = buildVoterUrl();
+            const tempInput = document.createElement('input');
+            tempInput.value = voteUrl;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            showToast("Đã sao chép đường dẫn bình chọn cho khán giả!");
+        };
+
+        // 4. Kết nối Firebase & Lắng nghe dữ liệu thời gian thực
+        async function initFirebase() {
+            if (typeof unsubscribePoll === 'function') {
+                unsubscribePoll();
+                unsubscribePoll = null;
+            }
+            pollDocRef = null;
+            currentUser = null;
+
+            activeSource = resolveActiveFirebaseSource();
+            firebaseConfig = activeSource.config;
+            updateFirebaseConfigBadgeUI();
+
+            if (!firebaseConfig) {
+                updateConnectionStatus('local_only', "Chế độ thử nội bộ (Chưa cấu hình Cloud)");
+                renderSettingsInputs();
+                renderAll();
+                startLocalTimerLoop();
+                return;
+            }
+
+            try {
+                const instanceName = activeSource.sourceType === 'custom'
+                    ? `custom_app_${firebaseConfig.projectId}`
+                    : '[DEFAULT]';
+                const app = initializeApp(firebaseConfig, instanceName);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                if (activeSource.sourceType !== 'custom' && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                currentUser = auth.currentUser;
+                updateConnectionStatus(activeSource.sourceType, `${activeSource.label} • Realtime`);
+
+                // Đường dẫn tuân thủ Rule 1: /artifacts/{appId}/public/data/{collectionName}/{docId}
+                pollDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'voting_sessions', 'active_poll_hpg');
+
+                // Kiểm tra dữ liệu ban đầu, nếu chưa có thì nén tối ưu 4 ảnh HPG + Logo và tạo mặc định
+                const docSnap = await getDoc(pollDocRef);
+                if (!docSnap.exists()) {
+                    const compressedLogo = await compressImageFromSource(appState.logoUrl, 240, 240, 0.8);
+                    const compressedPhotos = await Promise.all(
+                        appState.photos.map(async (p) => ({
+                            ...p,
+                            url: await compressImageFromSource(p.url, 720, 540, 0.72)
+                        }))
+                    );
+                    appState.logoUrl = compressedLogo;
+                    appState.photos = compressedPhotos;
+
+                    await setDoc(pollDocRef, {
+                        sessionId: appState.sessionId,
+                        eventTitle: appState.eventTitle,
+                        logoUrl: appState.logoUrl,
+                        durationSeconds: appState.durationSeconds,
+                        status: "idle",
+                        endTime: null,
+                        remainingSeconds: 120,
+                        photos: appState.photos,
+                        votes_0: 0,
+                        votes_1: 0,
+                        votes_2: 0,
+                        votes_3: 0
+                    });
+                }
+
+                // Lắng nghe thay đổi theo thời gian thực
+                unsubscribePoll = onSnapshot(pollDocRef, (snapshot) => {
+                    if (snapshot.exists()) {
+                        const data = snapshot.data();
+                        const prevStatus = appState.status;
+
+                        appState.sessionId = data.sessionId || appState.sessionId;
+                        appState.eventTitle = data.eventTitle || appState.eventTitle;
+                        appState.logoUrl = data.logoUrl || DEFAULT_LOGO_URL;
+                        appState.durationSeconds = data.durationSeconds || 120;
+                        appState.status = data.status || "idle";
+                        appState.endTime = data.endTime || null;
+                        appState.remainingSeconds = data.remainingSeconds ?? 120;
+
+                        if (data.photos && Array.isArray(data.photos)) {
+                            appState.photos = data.photos.map((p, idx) => ({
+                                ...p,
+                                votes: data[`votes_${idx}`] ?? p.votes ?? 0
+                            }));
+                        }
+
+                        if (prevStatus !== 'locked' && appState.status === 'locked' && currentMode === 'presenter') {
+                            triggerWinnerCelebration();
+                        }
+                        if (appState.status !== 'locked') {
+                            confettiTriggered = false;
+                        }
+
+                        if (document.getElementById('settings-panel').classList.contains('hidden')) {
+                            renderSettingsInputs();
+                        }
+                        renderAll();
+                    }
+                }, (error) => {
+                    console.error("Lỗi đồng bộ dữ liệu:", error);
+                    updateConnectionStatus(activeSource.sourceType, `${activeSource.label} • Lỗi quyền truy cập/mạng`);
+                });
+
+                startLocalTimerLoop();
+
+            } catch (err) {
+                console.error("Lỗi khởi tạo Firebase:", err);
+                updateConnectionStatus(activeSource.sourceType, `${activeSource.label} • Lỗi kết nối`);
+                renderAll();
+            }
+        }
+
+        function updateConnectionStatus(sourceType, text) {
+            const dot = document.getElementById('connection-dot');
+            const label = document.getElementById('connection-status');
+            label.textContent = text;
+            if (sourceType === 'custom') {
+                dot.className = "inline-flex h-2.5 w-2.5 rounded-full bg-[#00A8E8] animate-ping";
+            } else if (sourceType === 'sandbox') {
+                dot.className = "inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-ping";
+            } else {
+                dot.className = "inline-flex h-2.5 w-2.5 rounded-full bg-[#EAB308]";
+            }
+        }
+
+        function updateFirebaseConfigBadgeUI() {
+            const badge = document.getElementById('firebase-config-badge');
+            const textarea = document.getElementById('input-firebase-config');
+            if (!badge) return;
+
+            const customCfg = getStoredCustomFirebaseConfig();
+            if (customCfg) {
+                badge.textContent = `Đang dùng: Firebase Riêng (${customCfg.projectId})`;
+                badge.className = "px-2.5 py-1 rounded-lg text-[11px] font-bold bg-sky-100 text-sky-800 border border-sky-300";
+                if (textarea && document.activeElement !== textarea && !textarea.value.trim()) {
+                    textarea.value = JSON.stringify(customCfg, null, 2);
+                }
+            } else if (sandboxFirebaseConfig && sandboxFirebaseConfig.apiKey) {
+                badge.textContent = "Đang dùng: Sandbox";
+                badge.className = "px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200";
+            } else {
+                badge.textContent = "Đang dùng: Chế độ thử nội bộ";
+                badge.className = "px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200";
+            }
+        }
+
+        window.saveCustomFirebaseConfig = async function() {
+            const textarea = document.getElementById('input-firebase-config');
+            try {
+                const parsed = parseFirebaseConfigInput(textarea.value);
+                if (!parsed) {
+                    showToast("Vui lòng dán cấu hình Firebase trước khi lưu.", "error");
+                    return;
+                }
+                localStorage.setItem(CUSTOM_FIREBASE_STORAGE_KEY, JSON.stringify(parsed));
+                textarea.value = JSON.stringify(parsed, null, 2);
+                initQRCode();
+                await initFirebase();
+                showToast(`Đã lưu & kết nối Firebase riêng (${parsed.projectId})!`);
+            } catch (err) {
+                showToast(err.message || "Cấu hình Firebase không hợp lệ!", "error");
+            }
+        };
+
+        window.clearCustomFirebaseConfig = async function() {
+            localStorage.removeItem(CUSTOM_FIREBASE_STORAGE_KEY);
+            const textarea = document.getElementById('input-firebase-config');
+            if (textarea) textarea.value = '';
+            initQRCode();
+            await initFirebase();
+            showToast("Đã xóa cấu hình Firebase riêng và quay về cấu hình mặc định.");
+        };
+
+        // Xuất kết quả bình chọn ra file CSV
+        window.exportResultsCSV = function() {
+            const totalVotes = appState.photos.reduce((sum, p) => sum + (p.votes || 0), 0);
+            const rows = [
+                ["Đơn vị", "Hệ thống Giáo dục HPG"],
+                ["Sự kiện", appState.eventTitle],
+                ["Mã phiên", appState.sessionId],
+                ["Trạng thái", appState.status],
+                ["Tổng số phiếu", String(totalVotes)],
+                [],
+                ["Thứ tự", "Tên thí sinh / Tập thể lớp", "Đơn vị / Mô tả", "Số phiếu", "Tỷ lệ (%)"]
+            ];
+
+            appState.photos.forEach((photo, idx) => {
+                const votes = photo.votes || 0;
+                const pct = totalVotes > 0 ? ((votes / totalVotes) * 100).toFixed(2) : "0.00";
+                rows.push([
+                    `#${idx + 1}`,
+                    photo.title || "",
+                    photo.author || "",
+                    String(votes),
+                    `${pct}%`
+                ]);
+            });
+
+            const csvContent = "\uFEFF" + rows
+                .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+                .join("\r\n");
+
+            const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            const safeName = (appState.eventTitle || "ket-qua-binh-chon-hpg")
+                .toLowerCase()
+                .replace(/[^a-z0-9\u00C0-\u024F\u1E00-\u1EFF]+/gi, "-")
+                .replace(/^-|-$/g, "");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `${safeName || "ket-qua-binh-chon-hpg"}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            showToast("Đã xuất file CSV kết quả bình chọn!");
+        };
+
+        // 5. Đồng bộ cập nhật lên Firestore
+        async function syncStateToCloud(updates) {
+            Object.assign(appState, updates);
+            renderAll();
+            if (db && pollDocRef && currentUser) {
+                try {
+                    await updateDoc(pollDocRef, updates);
+                } catch (e) {
+                    console.error("Không thể cập nhật dữ liệu:", e);
+                }
+            }
+        }
+
+        // 6. Vòng lặp đồng hồ đếm ngược chuẩn xác theo thời gian thực
+        function startLocalTimerLoop() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (appState.status === 'running' && appState.endTime) {
+                    const now = Date.now();
+                    const diffMs = appState.endTime - now;
+                    const secLeft = Math.max(0, Math.ceil(diffMs / 1000));
+                    
+                    appState.remainingSeconds = secLeft;
+                    updateTimerDisplays(secLeft);
+
+                    if (secLeft <= 0) {
+                        appState.status = 'locked';
+                        appState.endTime = null;
+                        if (currentMode === 'presenter') {
+                            syncStateToCloud({
+                                status: 'locked',
+                                endTime: null,
+                                remainingSeconds: 0
+                            });
+                            triggerWinnerCelebration();
+                        } else {
+                            renderAll();
+                        }
+                    }
+                } else {
+                    updateTimerDisplays(appState.remainingSeconds);
+                }
+            }, 250);
+        }
+
+        function formatTime(totalSeconds) {
+            const mins = Math.floor(totalSeconds / 60);
+            const secs = totalSeconds % 60;
+            return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+
+        function updateTimerDisplays(seconds) {
+            const formatted = formatTime(seconds);
+            const pTimer = document.getElementById('presenter-timer');
+            const vTimer = document.getElementById('voter-timer');
+            
+            if (pTimer) {
+                pTimer.textContent = formatted;
+                if (seconds <= 10 && appState.status === 'running') {
+                    pTimer.classList.add('text-rose-600', 'animate-pulse');
+                    pTimer.classList.remove('text-[#00A8E8]');
+                } else {
+                    pTimer.classList.remove('text-rose-600', 'animate-pulse');
+                    pTimer.classList.add('text-[#00A8E8]');
+                }
+            }
+            if (vTimer) {
+                vTimer.textContent = formatted;
+            }
+        }
+
+        // 7. Các thao tác điều khiển của Ban Tổ Chức
+        window.startVoting = function() {
+            const duration = appState.status === 'paused' && appState.remainingSeconds > 0 
+                ? appState.remainingSeconds 
+                : (parseInt(document.getElementById('input-duration').value) || appState.durationSeconds || 120);
+            
+            const targetEndTime = Date.now() + duration * 1000;
+            confettiTriggered = false;
+            syncStateToCloud({
+                status: 'running',
+                endTime: targetEndTime,
+                remainingSeconds: duration
+            });
+            showToast("Đã bắt đầu mở bình chọn!");
+        };
+
+        window.togglePauseVoting = function() {
+            if (appState.status === 'running') {
+                const secLeft = Math.max(1, Math.ceil((appState.endTime - Date.now()) / 1000));
+                syncStateToCloud({
+                    status: 'paused',
+                    endTime: null,
+                    remainingSeconds: secLeft
+                });
+                showToast("Đã tạm dừng đồng hồ bình chọn.");
+            } else if (appState.status === 'paused') {
+                window.startVoting();
+            }
+        };
+
+        window.lockVotingNow = function() {
+            syncStateToCloud({
+                status: 'locked',
+                endTime: null,
+                remainingSeconds: 0
+            });
+            triggerWinnerCelebration();
+            showToast("Đã khóa cổng bình chọn!");
+        };
+
+        window.openResetModal = function() {
+            document.getElementById('reset-modal').classList.remove('hidden');
+            document.getElementById('reset-modal').classList.add('flex');
+        };
+
+        window.closeResetModal = function() {
+            document.getElementById('reset-modal').classList.add('hidden');
+            document.getElementById('reset-modal').classList.remove('flex');
+        };
+
+        window.confirmResetVoting = function() {
+            const duration = parseInt(document.getElementById('input-duration').value) || 120;
+            const resetPhotos = appState.photos.map(p => ({ ...p, votes: 0 }));
+            confettiTriggered = false;
+            
+            syncStateToCloud({
+                sessionId: "hpg_session_" + Date.now(),
+                status: 'idle',
+                endTime: null,
+                durationSeconds: duration,
+                remainingSeconds: duration,
+                photos: resetPhotos,
+                votes_0: 0,
+                votes_1: 0,
+                votes_2: 0,
+                votes_3: 0
+            });
+            closeResetModal();
+            showToast("Đã làm mới toàn bộ phiếu về 0!");
+        };
+
+        // 8. Cài đặt cuộc thi & Xử lý nén ảnh tải lên
+        window.toggleSettingsPanel = function() {
+            const panel = document.getElementById('settings-panel');
+            const chevron = document.getElementById('settings-chevron');
+            const text = document.getElementById('settings-toggle-text');
+            
+            if (panel.classList.contains('hidden')) {
+                panel.classList.remove('hidden');
+                chevron.classList.add('rotate-180');
+                text.textContent = "Thu gọn";
+                renderSettingsInputs();
+            } else {
+                panel.classList.add('hidden');
+                chevron.classList.remove('rotate-180');
+                text.textContent = "Mở rộng";
+            }
+        };
+
+        function renderSettingsInputs() {
+            document.getElementById('input-event-title').value = appState.eventTitle;
+            document.getElementById('input-duration').value = appState.durationSeconds;
+            const logoInput = document.getElementById('input-brand-logo');
+            const logoPreview = document.getElementById('preview-setting-logo');
+            if (logoInput) logoInput.value = appState.logoUrl || DEFAULT_LOGO_URL;
+            if (logoPreview) logoPreview.src = appState.logoUrl || DEFAULT_LOGO_URL;
+
+            const grid = document.getElementById('photo-settings-grid');
+            grid.innerHTML = appState.photos.map((photo, index) => `
+                <div class="bg-[#F0F9FF] border border-sky-200 rounded-2xl p-3.5 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-extrabold text-[#0284C7] uppercase">Thí sinh / Tập thể #${index + 1}</span>
+                        <label class="cursor-pointer px-2.5 py-1 rounded-lg bg-white hover:bg-sky-100 text-[11px] font-bold text-[#00A8E8] border border-sky-200 transition shadow-sm">
+                            <i class="fa-solid fa-upload mr-1"></i> Đổi ảnh
+                            <input type="file" accept="image/*" class="hidden" onchange="handleImageUpload(event, ${index})">
+                        </label>
+                    </div>
+                    <div class="aspect-video rounded-xl overflow-hidden bg-white border border-sky-200">
+                        <img id="preview-setting-img-${index}" src="${photo.url}" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/600x400/e0f2fe/0284c7?text=Anh+${index+1}'">
+                    </div>
+                    <input type="text" id="input-photo-title-${index}" value="${escapeHtml(photo.title)}" class="w-full bg-white border border-sky-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-[#00A8E8]" placeholder="Tên lớp / thí sinh...">
+                    <input type="text" id="input-photo-author-${index}" value="${escapeHtml(photo.author)}" class="w-full bg-white border border-sky-200 rounded-lg px-3 py-1.5 text-xs text-slate-600 focus:outline-none focus:border-[#00A8E8]" placeholder="Đơn vị / Mô tả...">
+                    <input type="text" id="input-photo-url-${index}" value="${escapeHtml(photo.url)}" oninput="document.getElementById('preview-setting-img-${index}').src=this.value" class="w-full bg-white border border-sky-200 rounded-lg px-3 py-1.5 text-[11px] text-slate-500 focus:outline-none focus:border-[#00A8E8]" placeholder="Hoặc dán URL hình ảnh...">
+                </div>
+            `).join('');
+        }
+
+        window.handleLogoUpload = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const compressedLogo = await compressImageFromSource(e.target.result, 240, 240, 0.85);
+                document.getElementById('input-brand-logo').value = compressedLogo;
+                document.getElementById('preview-setting-logo').src = compressedLogo;
+                showToast("Đã tải và tối ưu dung lượng Logo!");
+            };
+            reader.readAsDataURL(file);
+        };
+
+        window.handleImageUpload = function(event, index) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const compressedDataUrl = await compressImageFromSource(e.target.result, 720, 540, 0.72);
+                document.getElementById(`input-photo-url-${index}`).value = compressedDataUrl;
+                document.getElementById(`preview-setting-img-${index}`).src = compressedDataUrl;
+                showToast(`Đã tải và tối ưu dung lượng Ảnh #${index + 1}`);
+            };
+            reader.readAsDataURL(file);
+        };
+
+        window.loadSamplePhotos = async function() {
+            const compressedDefaults = await Promise.all(
+                SAMPLE_PHOTOS.map(async (sample, idx) => ({
+                    ...sample,
+                    url: await compressImageFromSource(sample.url, 720, 540, 0.72),
+                    votes: appState.photos[idx]?.votes || 0
+                }))
+            );
+            appState.photos = compressedDefaults;
+            appState.logoUrl = await compressImageFromSource(DEFAULT_LOGO_URL, 240, 240, 0.85);
+            renderSettingsInputs();
+            showToast("Đã khôi phục 4 ảnh dự thi mặc định của HPG!");
+        };
+
+        window.saveSettings = async function() {
+            const newTitle = document.getElementById('input-event-title').value.trim() || "BÌNH CHỌN ẢNH HỆ THỐNG GIÁO DỤC HPG";
+            const newDuration = Math.max(10, parseInt(document.getElementById('input-duration').value) || 120);
+            const rawLogo = document.getElementById('input-brand-logo').value.trim() || DEFAULT_LOGO_URL;
+            const optimizedLogo = await compressImageFromSource(rawLogo, 240, 240, 0.85);
+            
+            const updatedPhotos = await Promise.all(
+                appState.photos.map(async (p, idx) => {
+                    const rawUrl = document.getElementById(`input-photo-url-${idx}`).value.trim() || SAMPLE_PHOTOS[idx].url;
+                    const optimizedUrl = await compressImageFromSource(rawUrl, 720, 540, 0.72);
+                    return {
+                        id: idx,
+                        title: document.getElementById(`input-photo-title-${idx}`).value.trim() || `Thí sinh #${idx + 1}`,
+                        author: document.getElementById(`input-photo-author-${idx}`).value.trim() || "",
+                        url: optimizedUrl,
+                        votes: p.votes || 0
+                    };
+                })
+            );
+
+            const updates = {
+                eventTitle: newTitle,
+                logoUrl: optimizedLogo,
+                durationSeconds: newDuration,
+                photos: updatedPhotos
+            };
+
+            if (appState.status === 'idle') {
+                updates.remainingSeconds = newDuration;
+            }
+
+            await syncStateToCloud(updates);
+            toggleSettingsPanel();
+            showToast("Đã lưu cài đặt và đồng bộ lên màn hình!");
+        };
+
+        // 9. Xử lý Khán giả bỏ phiếu (Có chống gian lận theo phiên trên thiết bị)
+        window.castVote = async function(photoIndex) {
+            if (appState.status !== 'running') {
+                showToast("Hiện chưa mở hoặc đã hết thời gian bình chọn!", "error");
+                return;
+            }
+
+            const storageKey = `voted_${appId}_${appState.sessionId}`;
+            if (localStorage.getItem(storageKey) !== null) {
+                showToast("Bạn đã bình chọn trong phiên này rồi!", "error");
+                return;
+            }
+
+            localStorage.setItem(storageKey, String(photoIndex));
+            
+            appState.photos[photoIndex].votes = (appState.photos[photoIndex].votes || 0) + 1;
+            renderAll();
+            showToast(`Cảm ơn bạn đã bình chọn cho "${appState.photos[photoIndex].title}"!`);
+
+            if (db && pollDocRef && currentUser) {
+                try {
+                    await updateDoc(pollDocRef, {
+                        [`votes_${photoIndex}`]: increment(1)
+                    });
+                } catch (err) {
+                    console.error("Lỗi gửi phiếu:", err);
+                }
+            }
+        };
+
+        window.resetLocalDeviceVote = function() {
+            const storageKey = `voted_${appId}_${appState.sessionId}`;
+            localStorage.removeItem(storageKey);
+            renderAll();
+            showToast("Đã xóa trạng thái bình chọn trên thiết bị này.");
+        };
+
+        // 10. Render Giao diện Trình Chiếu & Giao diện Khán Giả
+        function renderAll() {
+            const totalVotes = appState.photos.reduce((sum, p) => sum + (p.votes || 0), 0);
+            const maxVotes = Math.max(...appState.photos.map(p => p.votes || 0));
+
+            // Cập nhật logo HPG, tiêu đề & tổng phiếu
+            const activeLogo = appState.logoUrl || DEFAULT_LOGO_URL;
+            const pLogo = document.getElementById('presenter-brand-logo');
+            const vLogo = document.getElementById('voter-brand-logo');
+            if (pLogo && pLogo.src !== activeLogo) pLogo.src = activeLogo;
+            if (vLogo && vLogo.src !== activeLogo) vLogo.src = activeLogo;
+
+            document.getElementById('display-event-title').textContent = appState.eventTitle;
+            document.getElementById('voter-event-title').textContent = appState.eventTitle;
+            document.getElementById('total-votes-display').textContent = totalVotes;
+
+            updateControlsUI();
+
+            // Render 4 thẻ ảnh trên Màn hình Trình chiếu (BTC) theo bảng màu Xanh Dương - Vàng - Trắng HPG
+            const presenterGrid = document.getElementById('presenter-photos-grid');
+            presenterGrid.innerHTML = appState.photos.map((photo, idx) => {
+                const votes = photo.votes || 0;
+                const percent = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
+                const isWinner = appState.status === 'locked' && totalVotes > 0 && votes === maxVotes;
+
+                return `
+                    <div class="relative flex flex-col bg-white border-2 ${isWinner ? 'winner-glow' : 'border-sky-200 hover:border-[#00A8E8]'} rounded-3xl overflow-hidden shadow-lg shadow-sky-900/5 transition-all duration-500">
+                        <!-- Huy hiệu Số thứ tự / Top 1 -->
+                        <div class="absolute top-3 left-3 z-20 flex items-center gap-2">
+                            <span class="w-9 h-9 rounded-xl ${isWinner ? 'bg-[#F5D800] text-slate-950 border-2 border-white' : 'bg-[#00A8E8] text-white border-2 border-white'} font-display font-bold text-lg flex items-center justify-center shadow-md">
+                                #${idx + 1}
+                            </span>
+                            ${isWinner ? `
+                                <span class="px-3 py-1 rounded-xl bg-gradient-to-r from-[#F5D800] to-amber-300 text-slate-950 border border-white font-black text-xs uppercase tracking-wider shadow-md flex items-center gap-1 animate-bounce">
+                                    <i class="fa-solid fa-crown text-[#0284C7]"></i> Quán Quân HPG
+                                </span>
+                            ` : ''}
+                        </div>
+
+                        <!-- Khung ảnh -->
+                        <div class="relative aspect-[4/3] w-full bg-sky-50 overflow-hidden group cursor-pointer" onclick="openLightbox(${idx})">
+                            <img src="${photo.url}" alt="${escapeHtml(photo.title)}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onerror="this.src='https://placehold.co/800x600/e0f2fe/0284c7?text=Anh+Du+Thi+${idx+1}'">
+                            <div class="absolute inset-0 bg-gradient-to-t from-slate-900/40 via-transparent to-transparent opacity-60"></div>
+                            <button class="absolute bottom-3 right-3 w-8 h-8 rounded-lg bg-white/90 text-[#0284C7] hover:bg-[#00A8E8] hover:text-white flex items-center justify-center text-xs shadow-md opacity-0 group-hover:opacity-100 transition">
+                                <i class="fa-solid fa-expand"></i>
+                            </button>
+                        </div>
+
+                        <!-- Thông tin & Biểu đồ thanh tiến trình -->
+                        <div class="p-4 flex-1 flex flex-col justify-between space-y-3.5">
+                            <div>
+                                <h2 class="text-lg md:text-xl font-extrabold text-slate-900 leading-snug line-clamp-1" title="${escapeHtml(photo.title)}">
+                                    ${escapeHtml(photo.title)}
+                                </h2>
+                                <p class="text-xs font-medium text-slate-500 mt-0.5 line-clamp-1">${escapeHtml(photo.author)}</p>
+                            </div>
+
+                            <div class="space-y-2 bg-[#F0F9FF] p-3.5 rounded-2xl border border-sky-200/80">
+                                <div class="flex items-baseline justify-between">
+                                    <span class="text-2xl md:text-3xl font-display font-bold ${isWinner ? 'text-[#0284C7]' : 'text-slate-900'}">
+                                        ${votes} <span class="text-xs font-sans font-semibold text-slate-500">phiếu</span>
+                                    </span>
+                                    <span class="text-xl md:text-2xl font-display font-bold ${isWinner ? 'text-[#EAB308]' : 'text-[#00A8E8]'}">
+                                        ${percent}%
+                                    </span>
+                                </div>
+                                <!-- Thanh tiến trình Xanh dương - Vàng HPG -->
+                                <div class="w-full h-3.5 bg-sky-200/70 rounded-full overflow-hidden p-0.5">
+                                    <div class="h-full rounded-full transition-all duration-700 ease-out ${isWinner ? 'bg-gradient-to-r from-[#00A8E8] to-[#F5D800]' : 'bg-gradient-to-r from-[#00A8E8] to-sky-400'}" style="width: ${percent}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            renderVoterView(totalVotes, maxVotes);
+        }
+
+        function renderVoterView(totalVotes, maxVotes) {
+            const storageKey = `voted_${appId}_${appState.sessionId}`;
+            const votedIndexStr = localStorage.getItem(storageKey);
+            const hasVoted = votedIndexStr !== null;
+            const votedIndex = hasVoted ? parseInt(votedIndexStr) : -1;
+
+            const statusPill = document.getElementById('voter-status-pill');
+            const alertBox = document.getElementById('voter-alert-box');
+
+            if (appState.status === 'running') {
+                statusPill.textContent = "Đang mở bình chọn";
+                statusPill.className = "px-3 py-1.5 rounded-xl text-xs font-extrabold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200";
+            } else if (appState.status === 'locked') {
+                statusPill.textContent = "Đã khóa bình chọn";
+                statusPill.className = "px-3 py-1.5 rounded-xl text-xs font-extrabold uppercase bg-rose-50 text-rose-700 border border-rose-200";
+            } else {
+                statusPill.textContent = "Chờ bắt đầu";
+                statusPill.className = "px-3 py-1.5 rounded-xl text-xs font-extrabold uppercase bg-[#F5D800]/30 text-slate-900 border border-[#EAB308]/50";
+            }
+
+            if (appState.status === 'locked') {
+                alertBox.classList.remove('hidden');
+                alertBox.className = "rounded-2xl p-4 text-center font-bold text-sm border-2 shadow-md bg-rose-50 border-rose-200 text-rose-800";
+                alertBox.innerHTML = `<i class="fa-solid fa-lock mr-1.5 text-rose-600"></i> Đã hết thời gian bình chọn! Cảm ơn sự tham gia của bạn.`;
+            } else if (hasVoted) {
+                alertBox.classList.remove('hidden');
+                alertBox.className = "rounded-2xl p-4 text-center font-bold text-sm border-2 shadow-md bg-sky-50 border-[#00A8E8]/40 text-sky-900";
+                alertBox.innerHTML = `<i class="fa-solid fa-circle-check mr-1.5 text-[#00A8E8]"></i> Bạn đã bình chọn cho <strong>${escapeHtml(appState.photos[votedIndex]?.title || ('Ảnh #' + (votedIndex + 1)))}</strong>. Hãy theo dõi kết quả trực tiếp trên màn hình lớn!`;
+            } else if (appState.status !== 'running') {
+                alertBox.classList.remove('hidden');
+                alertBox.className = "rounded-2xl p-4 text-center font-bold text-sm border-2 shadow-md bg-[#F5D800]/20 border-[#EAB308]/50 text-slate-800";
+                alertBox.innerHTML = `<i class="fa-solid fa-hourglass-half mr-1.5 text-[#0284C7]"></i> Cổng bình chọn chuẩn bị mở. Vui lòng đợi hiệu lệnh từ MC!`;
+            } else {
+                alertBox.classList.add('hidden');
+            }
+
+            const voterList = document.getElementById('voter-photos-list');
+            voterList.innerHTML = appState.photos.map((photo, idx) => {
+                const isMyChoice = hasVoted && votedIndex === idx;
+                const canVote = appState.status === 'running' && !hasVoted;
+                const votes = photo.votes || 0;
+                const percent = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
+                const isWinner = appState.status === 'locked' && totalVotes > 0 && votes === maxVotes;
+
+                let btnHtml = '';
+                if (isMyChoice) {
+                    btnHtml = `
+                        <button disabled class="w-full py-3.5 rounded-xl bg-emerald-600 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-md">
+                            <i class="fa-solid fa-circle-check"></i> Đã bình chọn tác phẩm này
+                        </button>
+                    `;
+                } else if (canVote) {
+                    btnHtml = `
+                        <button onclick="castVote(${idx})" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#00A8E8] to-[#0284C7] hover:brightness-105 active:scale-[0.98] text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-sky-500/25 transition">
+                            <i class="fa-solid fa-heart text-[#F5D800]"></i> Bình chọn tác phẩm này
+                        </button>
+                    `;
+                } else {
+                    btnHtml = `
+                        <button disabled class="w-full py-3.5 rounded-xl bg-slate-100 text-slate-400 font-bold text-sm flex items-center justify-center gap-2 border border-slate-200 cursor-not-allowed">
+                            <i class="fa-solid fa-lock"></i> ${appState.status === 'locked' ? 'Đã khóa bình chọn' : 'Chưa thể bình chọn'}
+                        </button>
+                    `;
+                }
+
+                return `
+                    <div class="bg-white border-2 ${isMyChoice ? 'border-emerald-500 ring-2 ring-emerald-500/20' : (isWinner ? 'border-[#F5D800]' : 'border-sky-200')} rounded-3xl overflow-hidden shadow-md">
+                        <div class="relative aspect-[16/10] bg-sky-50" onclick="openLightbox(${idx})">
+                            <img src="${photo.url}" alt="${escapeHtml(photo.title)}" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/800x500/e0f2fe/0284c7?text=Anh+${idx+1}'">
+                            <span class="absolute top-3 left-3 px-2.5 py-1 rounded-xl bg-[#00A8E8] text-white font-display font-bold text-sm border-2 border-white shadow">
+                                #${idx + 1}
+                            </span>
+                            ${isWinner ? `
+                                <span class="absolute top-3 right-3 px-2.5 py-1 rounded-xl bg-[#F5D800] text-slate-950 font-black text-xs uppercase border border-white shadow">
+                                    <i class="fa-solid fa-crown mr-1 text-[#0284C7]"></i> Top 1 HPG
+                                </span>
+                            ` : ''}
+                            <button type="button" class="absolute bottom-2.5 right-2.5 px-2.5 py-1.5 rounded-lg bg-white/90 text-[#0284C7] text-xs font-bold shadow flex items-center gap-1">
+                                <i class="fa-solid fa-magnifying-glass-plus"></i> Phóng to
+                            </button>
+                        </div>
+                        <div class="p-4 space-y-3">
+                            <div>
+                                <h3 class="text-base font-extrabold text-slate-900">${escapeHtml(photo.title)}</h3>
+                                <p class="text-xs font-medium text-slate-500">${escapeHtml(photo.author)}</p>
+                            </div>
+                            
+                            ${(hasVoted || appState.status === 'locked') ? `
+                                <div class="space-y-1 bg-[#F0F9FF] p-2.5 rounded-xl border border-sky-100">
+                                    <div class="flex justify-between text-xs font-bold">
+                                        <span class="text-slate-700">${votes} lượt chọn</span>
+                                        <span class="text-[#0284C7]">${percent}%</span>
+                                    </div>
+                                    <div class="w-full h-2 bg-sky-200 rounded-full overflow-hidden">
+                                        <div class="h-full bg-gradient-to-r from-[#00A8E8] to-[#F5D800] rounded-full transition-all duration-500" style="width: ${percent}%"></div>
+                                    </div>
+                                </div>
+                            ` : ''}
+
+                            ${btnHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateControlsUI() {
+            const badge = document.getElementById('status-badge');
+            const btnStart = document.getElementById('btn-start');
+            const btnPause = document.getElementById('btn-pause');
+            const btnLock = document.getElementById('btn-lock');
+
+            if (appState.status === 'running') {
+                badge.innerHTML = `<i class="fa-solid fa-tower-broadcast mr-1 animate-pulse"></i> Đang mở bình chọn trực tiếp`;
+                badge.className = "px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-300";
+                
+                btnStart.classList.add('hidden');
+                btnPause.classList.remove('hidden');
+                btnPause.innerHTML = `<i class="fa-solid fa-pause"></i> Tạm dừng`;
+                btnLock.disabled = false;
+                btnLock.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else if (appState.status === 'paused') {
+                badge.innerHTML = `<i class="fa-solid fa-circle-pause mr-1"></i> Đang tạm dừng`;
+                badge.className = "px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-[#F5D800]/30 text-slate-900 border border-[#EAB308]";
+                
+                btnStart.classList.remove('hidden');
+                btnStart.innerHTML = `<i class="fa-solid fa-play"></i> Tiếp tục`;
+                btnPause.classList.add('hidden');
+            } else if (appState.status === 'locked') {
+                badge.innerHTML = `<i class="fa-solid fa-lock mr-1"></i> ĐÃ KHÓA BÌNH CHỌN`;
+                badge.className = "px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-300";
+                
+                btnStart.classList.remove('hidden');
+                btnStart.innerHTML = `<i class="fa-solid fa-play"></i> Mở lại`;
+                btnPause.classList.add('hidden');
+            } else {
+                badge.innerHTML = `<i class="fa-solid fa-clock mr-1"></i> Sẵn sàng bình chọn`;
+                badge.className = "px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-sky-50 text-[#0284C7] border border-[#00A8E8]/40";
+                
+                btnStart.classList.remove('hidden');
+                btnStart.innerHTML = `<i class="fa-solid fa-play"></i> Bắt đầu (${formatTime(appState.durationSeconds)})`;
+                btnPause.classList.add('hidden');
+            }
+        }
+
+        // 11. Hiệu ứng chúc mừng Top 1 theo bảng màu Xanh Dương - Vàng HPG & Lightbox xem ảnh lớn
+        function triggerWinnerCelebration() {
+            if (confettiTriggered || typeof confetti === 'undefined') return;
+            const totalVotes = appState.photos.reduce((sum, p) => sum + (p.votes || 0), 0);
+            if (totalVotes === 0) return;
+
+            confettiTriggered = true;
+            confetti({
+                particleCount: 130,
+                spread: 85,
+                origin: { y: 0.6 },
+                colors: ['#00A8E8', '#F5D800', '#0284C7', '#FFFFFF']
+            });
+        }
+
+        window.openLightbox = function(index) {
+            const photo = appState.photos[index];
+            if (!photo) return;
+            document.getElementById('lightbox-img').src = photo.url;
+            document.getElementById('lightbox-title').textContent = `#${index + 1} - ${photo.title}`;
+            document.getElementById('lightbox-desc').textContent = photo.author;
+            document.getElementById('image-lightbox').classList.remove('hidden');
+            document.getElementById('image-lightbox').classList.add('flex');
+        };
+
+        window.closeLightbox = function() {
+            document.getElementById('image-lightbox').classList.add('hidden');
+            document.getElementById('image-lightbox').classList.remove('flex');
+        };
+
+        // Tiện ích hỗ trợ
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast-notification');
+            const icon = document.getElementById('toast-icon');
+            const msg = document.getElementById('toast-message');
+            
+            msg.textContent = message;
+            icon.className = type === 'error' 
+                ? "fa-solid fa-circle-exclamation text-rose-400" 
+                : "fa-solid fa-circle-check text-[#F5D800]";
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3200);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Khởi chạy ứng dụng khi tải trang
+        window.addEventListener('DOMContentLoaded', () => {
+            initQRCode();
+            switchMode(currentMode);
+            initFirebase();
+        });
+    </script>
+</body>
+</html>
