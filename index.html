@@ -96,7 +96,7 @@
     <!-- ===================================================================== -->
     <!-- MÀN HÌNH 1: TRÌNH CHIẾU & ĐIỀU KHIỂN (DÀNH CHO BAN TỔ CHỨC)           -->
     <!-- ===================================================================== -->
-    <main id="presenter-view" class="flex-1 flex flex-col max-w-[1600px] w-full mx-auto p-4 md:p-6 gap-5">
+    <main id="presenter-view" class="flex-1 flex flex-col max-w-[1720px] w-full mx-auto p-4 md:p-6 gap-5">
         
         <!-- Header Trình Chiếu: Logo HPG, Tiêu đề, Đồng hồ đếm ngược, Mã QR -->
         <header class="grid grid-cols-1 lg:grid-cols-12 gap-4 bg-white border-2 border-[#00A8E8]/30 rounded-3xl p-4 md:p-6 shadow-xl shadow-sky-900/5 items-center relative overflow-hidden">
@@ -266,7 +266,7 @@
             </div>
         </div>
 
-        <!-- Khu vực Hiển thị 5 Bức Ảnh Trực Tiếp (Lưới 5 cột trên màn hình lớn, 2-3 cột trên màn hình vừa) -->
+        <!-- Khu vực Hiển thị 5 Bức Ảnh Trực Tiếp (Lưới 5 cột trên màn hình lớn, 3 cột trên laptop vừa, 2 cột trên tablet) -->
         <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 flex-1 items-stretch" id="presenter-photos-grid">
             <!-- 5 thẻ ảnh sẽ được render bằng JS -->
         </section>
@@ -405,14 +405,14 @@
             {
                 id: 3,
                 title: "Sóc Nâu",
-                author: "Hệ thống Giáo dục HPG",
+                author: "Tác phẩm Sóc Nâu • Hệ thống Giáo dục HPG",
                 url: "soc_nau.jpg",
                 votes: 0
             },
             {
                 id: 4,
                 title: "Cô Mến",
-                author: "Hệ thống Giáo dục HPG",
+                author: "Tác phẩm Cô Mến • Hệ thống Giáo dục HPG",
                 url: "co_men.jpg",
                 votes: 0
             }
@@ -590,8 +590,8 @@
             
             new QRCode(qrContainer, {
                 text: voteUrl,
-                width: 200,
-                height: 200,
+                width: 170,
+                height: 170,
                 colorDark: "#0F172A",
                 colorLight: "#ffffff",
                 correctLevel: QRCode.CorrectLevel.M
@@ -825,17 +825,16 @@
                 ]);
             });
 
-            const csvContent = "﻿" + rows
+            const csvContent = "\uFEFF" + rows
                 .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
-                .join("
-");
+                .join("\r\n");
 
             const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
             const safeName = (appState.eventTitle || "ket-qua-binh-chon-hpg")
                 .toLowerCase()
-                .replace(/[^a-z0-9À-ɏḀ-ỿ]+/gi, "-")
+                .replace(/[^a-z0-9\u00C0-\u024F\u1E00-\u1EFF]+/gi, "-")
                 .replace(/^-|-$/g, "");
             link.setAttribute("href", url);
             link.setAttribute("download", `${safeName || "ket-qua-binh-chon-hpg"}.csv`);
@@ -972,19 +971,19 @@
             const resetPhotos = appState.photos.map(p => ({ ...p, votes: 0 }));
             confettiTriggered = false;
             
-            syncStateToCloud({
+            const resetPayload = {
                 sessionId: "hpg_session_" + Date.now(),
                 status: 'idle',
                 endTime: null,
                 durationSeconds: duration,
                 remainingSeconds: duration,
-                photos: resetPhotos,
-                votes_0: 0,
-                votes_1: 0,
-                votes_2: 0,
-                votes_3: 0,
-                votes_4: 0
+                photos: resetPhotos
+            };
+            resetPhotos.forEach((_, idx) => {
+                resetPayload[`votes_${idx}`] = 0;
             });
+
+            syncStateToCloud(resetPayload);
             closeResetModal();
             showToast("Đã làm mới toàn bộ phiếu về 0!");
         };
@@ -1083,16 +1082,19 @@
             const optimizedLogo = await compressImageFromSource(rawLogo, 240, 240, 0.85);
             
             const updatedPhotos = await Promise.all(
-                appState.photos.map(async (p, idx) => {
-                    const fallbackSample = SAMPLE_PHOTOS[idx] || SAMPLE_PHOTOS[0];
-                    const rawUrl = document.getElementById(`input-photo-url-${idx}`).value.trim() || fallbackSample.url;
+                SAMPLE_PHOTOS.map(async (sample, idx) => {
+                    const currentPhoto = appState.photos[idx] || sample;
+                    const urlEl = document.getElementById(`input-photo-url-${idx}`);
+                    const titleEl = document.getElementById(`input-photo-title-${idx}`);
+                    const authorEl = document.getElementById(`input-photo-author-${idx}`);
+                    const rawUrl = (urlEl ? urlEl.value.trim() : '') || sample.url;
                     const optimizedUrl = await compressImageFromSource(rawUrl, 720, 540, 0.72);
                     return {
                         id: idx,
-                        title: document.getElementById(`input-photo-title-${idx}`).value.trim() || `Thí sinh #${idx + 1}`,
-                        author: document.getElementById(`input-photo-author-${idx}`).value.trim() || "",
+                        title: (titleEl ? titleEl.value.trim() : '') || sample.title,
+                        author: (authorEl ? authorEl.value.trim() : '') || sample.author,
                         url: optimizedUrl,
-                        votes: p.votes || 0
+                        votes: currentPhoto.votes || 0
                     };
                 })
             );
@@ -1103,6 +1105,10 @@
                 durationSeconds: newDuration,
                 photos: updatedPhotos
             };
+
+            updatedPhotos.forEach((p, idx) => {
+                updates[`votes_${idx}`] = p.votes || 0;
+            });
 
             if (appState.status === 'idle') {
                 updates.remainingSeconds = newDuration;
@@ -1178,13 +1184,13 @@
                 return `
                     <div class="relative flex flex-col bg-white border-2 ${isWinner ? 'winner-glow' : 'border-sky-200 hover:border-[#00A8E8]'} rounded-3xl overflow-hidden shadow-lg shadow-sky-900/5 transition-all duration-500">
                         <!-- Huy hiệu Số thứ tự / Top 1 -->
-                        <div class="absolute top-3 left-3 z-20 flex items-center gap-2">
-                            <span class="w-9 h-9 rounded-xl ${isWinner ? 'bg-[#F5D800] text-slate-950 border-2 border-white' : 'bg-[#00A8E8] text-white border-2 border-white'} font-display font-bold text-lg flex items-center justify-center shadow-md">
+                        <div class="absolute top-3 left-3 z-20 flex items-center gap-1.5">
+                            <span class="w-8 h-8 rounded-xl ${isWinner ? 'bg-[#F5D800] text-slate-950 border-2 border-white' : 'bg-[#00A8E8] text-white border-2 border-white'} font-display font-bold text-base flex items-center justify-center shadow-md">
                                 #${idx + 1}
                             </span>
                             ${isWinner ? `
                                 <span class="px-2.5 py-1 rounded-xl bg-gradient-to-r from-[#F5D800] to-amber-300 text-slate-950 border border-white font-black text-[11px] uppercase tracking-wider shadow-md flex items-center gap-1 animate-bounce">
-                                    <i class="fa-solid fa-crown text-[#0284C7]"></i> Yêu thích nhất
+                                    <i class="fa-solid fa-crown text-[#0284C7]"></i> Top 1 Yêu thích
                                 </span>
                             ` : ''}
                         </div>
@@ -1207,7 +1213,7 @@
                                 <p class="text-xs font-medium text-slate-500 mt-0.5 line-clamp-1">${escapeHtml(photo.author)}</p>
                             </div>
 
-                            <div class="space-y-2 bg-[#F0F9FF] p-3 rounded-2xl border border-sky-200/80">
+                            <div class="space-y-1.5 bg-[#F0F9FF] p-3 rounded-2xl border border-sky-200/80">
                                 <div class="flex items-baseline justify-between">
                                     <span class="text-xl md:text-2xl font-display font-bold ${isWinner ? 'text-[#0284C7]' : 'text-slate-900'}">
                                         ${votes} <span class="text-xs font-sans font-semibold text-slate-500">phiếu</span>
